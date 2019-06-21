@@ -1,7 +1,12 @@
 import time
 import datetime
+import sqlite3
+import hashlib
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from sqlite3 import Error
+from filehash import FileHash
 
 class Watcher:
     DIRECTORY_TO_WATCH = "/home/private/Documents/mas_bagus/test"
@@ -21,6 +26,28 @@ class Watcher:
             print("Error")
 
         self.observer.join()
+
+class Penyimpanan:
+    def sql_connect():
+        try:
+            con = sqlite3.connect('logs.db')
+            #print("Data Logs Sudah Terhubung")
+            return con
+        except Error:
+            #print("Data Log, belum terhubung. sistem akan berjalan dengan tidak menyimpan LOGS")
+            print(Error)
+
+    def crt_tbl(con):
+        cObj = con.cursor()
+        cObj.execute("create table if not exists m_logs (id integer primary key, mod text not null, desc text not null, enk text not null, tgl text not null)")
+        con.commit()
+        print("Data Logs Sudah Terhubung")
+
+    def tambah(con, data):
+        cObj = con.cursor()
+        cObj.execute("insert into m_logs(mod, desc, enk, tgl) values(?,?,?,?)", data)
+        #cObj.execute("insert into m_logs (key, enk, tgl) values (?,?,?)", mon, enk, det)
+        con.commit()
 
 class Pecah:
     def linear_search(item, my_list):
@@ -43,39 +70,57 @@ class Handler(FileSystemEventHandler):
         elif event.event_type == 'created':
             # Take any action here when a file is first created.
             currentDT = datetime.datetime.now()
+            hd = FileHash('md5')
             out_text = event.src_path
             itemfound = Pecah.linear_search('swp', out_text.split('.'))
             if itemfound:
                 print("...")
             else:
                 print("Created: {}".format(out_text))
+                print("Hash: {}".format(hd.hash_file(out_text)))
                 print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
+                c = Penyimpanan.sql_connect()
+                tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
+                Penyimpanan.tambah(c,("CREATED", out_text, hd.hash_file(out_text), tgl))
             #print("Created: {}".format(event.src_path))
 
         elif event.event_type == 'modified':
             # Taken any action here when a file is modified.
             currentDT = datetime.datetime.now()
+            hd = FileHash('md5')
             out_text = event.src_path
             itemfound = Pecah.linear_search('swp', out_text.split('.'))
             if itemfound:
                 print("...")
             else:
                 print("Modified: {}".format(out_text))
+                print("Hash: {}".format(hd.hash_file(out_text)))
                 print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
+                c = Penyimpanan.sql_connect()
+                tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
+                Penyimpanan.tambah(c,("MODIFIED", out_text, hd.hash_file(out_text), tgl))
             #print("Modified: {}".format(event.src_path))
             #print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
         elif event.event_type == 'deleted':
             # Taken any action here when a file is modified.
             currentDT = datetime.datetime.now()
+            hd = hashlib.md5()
             out_text = event.src_path
             itemfound = Pecah.linear_search('swp', out_text.split('.'))
             if itemfound:
                 print("...")
             else:
+                hd.update(b"Data telah dihapus")
                 print("Deleted: {}".format(out_text))
-                print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))    
+                print("Hash: {}".format(hd.hexdigest()))
+                print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
+                c = Penyimpanan.sql_connect()
+                tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
+                Penyimpanan.tambah(c,("DELETED", out_text, hd.hexdigest(), tgl))
 
 
 if __name__ == '__main__':
     w = Watcher()
+    c = Penyimpanan.sql_connect()
+    Penyimpanan.crt_tbl(c)
     w.run()
