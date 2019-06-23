@@ -1,12 +1,16 @@
+import sys
 import time
 import datetime
 import sqlite3
 import hashlib
+import requests
 
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from sqlite3 import Error
 from filehash import FileHash
+
+token = '';
 
 class Watcher:
     DIRECTORY_TO_WATCH = "/home/private/Documents/mas_bagus/test"
@@ -82,6 +86,9 @@ class Handler(FileSystemEventHandler):
                 c = Penyimpanan.sql_connect()
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("CREATED", out_text, hd.hash_file(out_text), tgl))
+                data = {'token': token, 'mode': 'CREATED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
+                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                
             #print("Created: {}".format(event.src_path))
 
         elif event.event_type == 'modified':
@@ -96,9 +103,18 @@ class Handler(FileSystemEventHandler):
                 print("Modified: {}".format(out_text))
                 print("Hash: {}".format(hd.hash_file(out_text)))
                 print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
+                #print(token)
                 c = Penyimpanan.sql_connect()
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
+                mon = '{}'.format(out_text)
+                enk = '{}'.format(hd.hash_file(out_text))
                 Penyimpanan.tambah(c,("MODIFIED", out_text, hd.hash_file(out_text), tgl))
+                data = {'token': token, 'mode': 'MODIFIED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
+                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                #print(data)
+                #print(req.status_code)
+                #print(req.text)
+                
             #print("Modified: {}".format(event.src_path))
             #print("Time: {}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second))
         elif event.event_type == 'deleted':
@@ -117,10 +133,28 @@ class Handler(FileSystemEventHandler):
                 c = Penyimpanan.sql_connect()
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("DELETED", out_text, hd.hexdigest(), tgl))
+                data = {'token': token, 'mode': 'DELETED', 'mon': str(out_text), 'enk': str(hd.hexdigest())}
+                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
 
 
 if __name__ == '__main__':
-    w = Watcher()
-    c = Penyimpanan.sql_connect()
-    Penyimpanan.crt_tbl(c)
-    w.run()
+    val = input("Masukan token anda: ")
+    print("Token anda: ")
+    print(val)
+
+    data = {'token': str(val)}
+    req = requests.post('http://192.168.1.11/bagus/check_token.php', data)
+
+    print(req.status_code)
+    #print(req.text)
+
+    if int(req.text) > 0:
+        print("Api ditemukan")
+        token = str(val)
+        w = Watcher()
+        c = Penyimpanan.sql_connect()
+        Penyimpanan.crt_tbl(c)
+        w.run()
+    else:
+        print("Api tidak ditemukan, Mohon periksa kembali")
+        sys.exit()
