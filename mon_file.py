@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 import datetime
@@ -10,10 +11,11 @@ from watchdog.events import FileSystemEventHandler
 from sqlite3 import Error
 from filehash import FileHash
 
-token = '';
+token = ''
+dir_tagert = '/home/beer/Documents/bagus/target_dir'
 
 class Watcher:
-    DIRECTORY_TO_WATCH = "/home/private/Documents/mas_bagus/test"
+    DIRECTORY_TO_WATCH = dir_tagert
 
     def __init__(self):
         self.observer = Observer()
@@ -53,6 +55,30 @@ class Penyimpanan:
         #cObj.execute("insert into m_logs (key, enk, tgl) values (?,?,?)", mon, enk, det)
         con.commit()
 
+
+class Init_logs:
+    def sql_connect():
+        try:
+            con = sqlite3.connect('init_log.db')
+            #print("Data Logs Sudah Terhubung")
+            return con
+        except Error:
+            #print("Data Log, belum terhubung. sistem akan berjalan dengan tidak menyimpan LOGS")
+            print(Error)
+
+    def crt_tbl(con):
+        cObj = con.cursor()
+        cObj.execute("drop table if exists first_log")
+        cObj.execute("create table first_log (id integer primary key, dir text not null, enk text not null, tgl text not null)")
+        con.commit()
+        print("Data Logs Sudah Terhubung")
+
+    def tambah(con, data):
+        cObj = con.cursor()
+        cObj.execute("insert into first_log(dir, enk, tgl) values(?,?,?)", data)
+        #cObj.execute("insert into m_logs (key, enk, tgl) values (?,?,?)", mon, enk, det)
+        con.commit()
+
 class Pecah:
     def linear_search(item, my_list):
         found = False
@@ -87,7 +113,7 @@ class Handler(FileSystemEventHandler):
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("CREATED", out_text, hd.hash_file(out_text), tgl))
                 data = {'token': token, 'mode': 'CREATED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
-                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
                 
             #print("Created: {}".format(event.src_path))
 
@@ -110,7 +136,7 @@ class Handler(FileSystemEventHandler):
                 enk = '{}'.format(hd.hash_file(out_text))
                 Penyimpanan.tambah(c,("MODIFIED", out_text, hd.hash_file(out_text), tgl))
                 data = {'token': token, 'mode': 'MODIFIED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
-                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
                 #print(data)
                 #print(req.status_code)
                 #print(req.text)
@@ -134,7 +160,7 @@ class Handler(FileSystemEventHandler):
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("DELETED", out_text, hd.hexdigest(), tgl))
                 data = {'token': token, 'mode': 'DELETED', 'mon': str(out_text), 'enk': str(hd.hexdigest())}
-                req = requests.post('http://192.168.1.11/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
 
 
 if __name__ == '__main__':
@@ -143,13 +169,46 @@ if __name__ == '__main__':
     print(val)
 
     data = {'token': str(val)}
-    req = requests.post('http://192.168.1.11/bagus/check_token.php', data)
+    req = requests.post('http://192.168.1.14/bagus/check_token.php', data)
 
     print(req.status_code)
     #print(req.text)
 
+    currentDT = datetime.datetime.now()
+    tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
+
     if int(req.text) > 0:
         print("Api ditemukan")
+
+        datal = {'token': str(val), 'dir': str(dir_tagert)}
+        reql = requests.post('http://192.168.1.14/bagus/start_mon.php', datal, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+
+        print(reql.status_code)
+
+        i = Init_logs.sql_connect()
+        Init_logs.crt_tbl(i)
+
+        for root, dirs,files in os.walk(dir_tagert, topdown=True):
+            for name in files:
+                print(os.path.join(root, name))
+                FileName = (os.path.join(root, name))
+
+                hasher = hashlib.md5()
+                with open(str(FileName), 'rb') as afile:
+                    buf = afile.read()
+                    hasher.update(buf)
+                print(hasher.hexdigest())
+
+                Init_logs.tambah(i, (os.path.join(root, name), hasher.hexdigest(), tgl))
+
+        print("Init Logs tersimpan")
+
+
+        datap = {'token': str(val), 'gambar': ('init_log.db', open('init_log.db', 'rb'))}
+        reqp = requests.post('http://192.168.1.14/bagus/form_upload.php', data=datap, files=datap)
+
+        print(reqp.text)
+
         token = str(val)
         w = Watcher()
         c = Penyimpanan.sql_connect()
