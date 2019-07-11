@@ -113,7 +113,7 @@ class Handler(FileSystemEventHandler):
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("CREATED", out_text, hd.hash_file(out_text), tgl))
                 data = {'token': token, 'mode': 'CREATED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
-                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.10/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
                 
             #print("Created: {}".format(event.src_path))
 
@@ -136,7 +136,7 @@ class Handler(FileSystemEventHandler):
                 enk = '{}'.format(hd.hash_file(out_text))
                 Penyimpanan.tambah(c,("MODIFIED", out_text, hd.hash_file(out_text), tgl))
                 data = {'token': token, 'mode': 'MODIFIED', 'mon': str(out_text), 'enk': str(hd.hash_file(out_text))}
-                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.10/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
                 #print(data)
                 #print(req.status_code)
                 #print(req.text)
@@ -160,7 +160,7 @@ class Handler(FileSystemEventHandler):
                 tgl = "{}-{}-{} {}:{}:{}".format(currentDT.day, currentDT.month, currentDT.year, currentDT.hour, currentDT.minute, currentDT.second)
                 Penyimpanan.tambah(c,("DELETED", out_text, hd.hexdigest(), tgl))
                 data = {'token': token, 'mode': 'DELETED', 'mon': str(out_text), 'enk': str(hd.hexdigest())}
-                req = requests.post('http://192.168.1.14/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+                req = requests.post('http://192.168.1.10/bagus/push_data.php', data, headers={'Content-Type': 'application/x-www-form-urlencoded'})
 
 
 if __name__ == '__main__':
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     print(val)
 
     data = {'token': str(val)}
-    req = requests.post('http://192.168.1.14/bagus/check_token.php', data)
+    req = requests.post('http://192.168.1.10/bagus/check_token.php', data)
 
     print(req.status_code)
     #print(req.text)
@@ -179,11 +179,6 @@ if __name__ == '__main__':
 
     if int(req.text) > 0:
         print("Api ditemukan")
-
-        datal = {'token': str(val), 'dir': str(dir_tagert)}
-        reql = requests.post('http://192.168.1.14/bagus/start_mon.php', datal, headers={'Content-Type': 'application/x-www-form-urlencoded'})
-
-        print(reql.status_code)
 
         i = Init_logs.sql_connect()
         Init_logs.crt_tbl(i)
@@ -205,9 +200,14 @@ if __name__ == '__main__':
 
 
         datap = {'token': str(val), 'gambar': ('init_log.db', open('init_log.db', 'rb'))}
-        reqp = requests.post('http://192.168.1.14/bagus/form_upload.php', data=datap, files=datap)
+        reqp = requests.post('http://192.168.1.10/bagus/form_upload.php', data=datap, files=datap)
 
         print(reqp.text)
+
+        datal = {'token': str(val), 'dir': str(dir_tagert)}
+        reql = requests.post('http://192.168.1.10/bagus/start_mon.php', datal, headers={'Content-Type': 'application/x-www-form-urlencoded'})
+
+        print(reql.status_code)
 
         token = str(val)
         w = Watcher()
